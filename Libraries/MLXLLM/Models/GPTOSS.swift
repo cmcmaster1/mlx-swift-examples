@@ -11,6 +11,7 @@ import MLXFast
 import MLXLMCommon
 import MLXNN
 import MLXRandom
+import Tokenizers
 
 // MARK: - Configuration
 
@@ -49,25 +50,6 @@ public struct GPTOSSConfiguration: Codable, Sendable {
         case layerTypes = "layer_types"
     }
 
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.modelType = try container.decode(String.self, forKey: .modelType)
-        self.hiddenLayers = try container.decode(Int.self, forKey: .hiddenLayers)
-        self.localExperts = try container.decode(Int.self, forKey: .localExperts)
-        self.expertsPerToken = try container.decode(Int.self, forKey: .expertsPerToken)
-        self.vocabularySize = try container.decode(Int.self, forKey: .vocabularySize)
-        self.rmsNormEps = try container.decode(Float.self, forKey: .rmsNormEps)
-        self.hiddenSize = try container.decode(Int.self, forKey: .hiddenSize)
-        self.intermediateSize = try container.decode(Int.self, forKey: .intermediateSize)
-        self.headDim = try container.decode(Int.self, forKey: .headDim)
-        self.attentionHeads = try container.decode(Int.self, forKey: .attentionHeads)
-        self.kvHeads = try container.decode(Int.self, forKey: .kvHeads)
-        self.slidingWindow = try container.decode(Int.self, forKey: .slidingWindow)
-        self.ropeTheta = try container.decodeIfPresent(Float.self, forKey: .ropeTheta) ?? 150000
-        self.ropeScaling = try container.decodeIfPresent(
-            [String: StringOrNumber].self, forKey: .ropeScaling)
-        self.layerTypes = try container.decodeIfPresent([String].self, forKey: .layerTypes)
-    }
 }
 
 private func mlxTopK(_ a: MLXArray, k: Int, axis: Int = -1) -> (values: MLXArray, indices: MLXArray)
@@ -592,5 +574,11 @@ extension GPTOSSModel: LoRAModel {
         model.layers.map { layer in
             (layer.selfAttn, ["q_proj", "k_proj", "v_proj", "o_proj"])
         }
+    }
+}
+
+extension GPTOSSModel {
+    public func messageGenerator(tokenizer: Tokenizer) -> MessageGenerator {
+        HarmonyMessageGenerator()
     }
 }

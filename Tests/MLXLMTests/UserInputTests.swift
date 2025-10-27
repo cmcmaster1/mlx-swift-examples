@@ -1,6 +1,7 @@
 import Foundation
 import MLX
 import MLXLMCommon
+import MLXLLM
 import MLXVLM
 import XCTest
 
@@ -138,6 +139,60 @@ public class UserInputTests: XCTestCase {
 
         let userInput = UserInput(chat: chat)
         XCTAssertEqual(userInput.images.count, 1)
+    }
+
+    public func testHarmonyGeneratorDeveloperAndSystem() {
+        let chat: [Chat.Message] = [
+            .system("You are ChatGPT."),
+            .developer("Answer in rhyme."),
+            .user("Introduce yourself."),
+            .assistant("I am your guide.", thinking: "Plan response"),
+        ]
+
+        let generator = HarmonyMessageGenerator()
+        let messages = generator.generate(messages: chat)
+
+        XCTAssertEqual(messages.count, 3)
+        let developer = messages.first as? [String: Any]
+        XCTAssertEqual(developer?["role"] as? String, "developer")
+        XCTAssertEqual(developer?["content"] as? String, "Answer in rhyme.")
+
+        let assistant = messages.last as? [String: Any]
+        XCTAssertEqual(assistant?["role"] as? String, "assistant")
+        XCTAssertEqual(assistant?["content"] as? String, "I am your guide.")
+        XCTAssertEqual(assistant?["thinking"] as? String, "Plan response")
+
+        let userInput = UserInput(chat: chat)
+        XCTAssertEqual(userInput.additionalContext?["model_identity"] as? String, "You are ChatGPT.")
+    }
+
+    public func testHarmonyGeneratorToolCall() {
+        let toolCall = Chat.Message.ToolCall(
+            id: "call_1",
+            name: "lookup_weather",
+            arguments: ["location": "San Francisco"],
+            contentType: "json"
+        )
+
+        let chat: [Chat.Message] = [
+            .user("What's the weather?"),
+            .assistant("", toolCalls: [toolCall]),
+            .tool("{\"temperature\":18}"),
+        ]
+
+        let messages = HarmonyMessageGenerator().generate(messages: chat)
+        XCTAssertEqual(messages.count, 3)
+
+        let assistant = messages[1] as? [String: Any]
+        XCTAssertEqual(assistant?["role"] as? String, "assistant")
+
+        let toolCalls = assistant?["tool_calls"] as? [[String: Any]]
+        XCTAssertEqual(toolCalls?.count, 1)
+        XCTAssertEqual(toolCalls?.first?["name"] as? String, "lookup_weather")
+        XCTAssertEqual(
+            (toolCalls?.first?["arguments"] as? [String: Any])?["location"] as? String,
+            "San Francisco")
+        XCTAssertEqual(toolCalls?.first?["content_type"] as? String, "json")
     }
 
 }

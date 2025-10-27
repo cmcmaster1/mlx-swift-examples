@@ -25,6 +25,9 @@ let package = Package(
         .library(
             name: "StableDiffusion",
             targets: ["StableDiffusion"]),
+        .executable(
+            name: "harmony-chat",
+            targets: ["HarmonyChat"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.29.1")),
@@ -157,6 +160,19 @@ let package = Package(
             exclude: [
                 "README.md"
             ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency")
+            ]
+        ),
+        .executableTarget(
+            name: "HarmonyChat",
+            dependencies: [
+                "MLXLLM",
+                "MLXLMCommon",
+                .product(name: "MLX", package: "mlx-swift"),
+                .product(name: "Transformers", package: "swift-transformers"),
+            ],
+            path: "Tools/HarmonyChat",
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency")
             ]

@@ -274,7 +274,17 @@ public struct UserInput: Sendable {
 
         self.processing = processing
         self.tools = tools
-        self.additionalContext = additionalContext
+
+        var context = additionalContext ?? [:]
+        let systemIdentity = chat
+            .filter { $0.role == .system }
+            .map(\.content)
+            .filter { !$0.isEmpty }
+        if !systemIdentity.isEmpty, context["model_identity"] == nil {
+            context["model_identity"] = systemIdentity.joined(separator: "\n\n")
+        }
+
+        self.additionalContext = context.isEmpty ? nil : context
     }
 
     /// Initialize the `UserInput` with a preconfigured ``Prompt-swift.enum``.

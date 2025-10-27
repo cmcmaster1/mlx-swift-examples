@@ -24,7 +24,7 @@ private class Generator {
         self.model = model
         self.messages = []
         if let instructions = instructions {
-            messages.append(.system(instructions))
+            messages.append(.developer(instructions))
         }
         messages.append(
             .user(
@@ -40,7 +40,7 @@ private class Generator {
     ) {
         self.model = model
         if let instructions {
-            self.messages = [.system(instructions)]
+            self.messages = [.developer(instructions)]
         } else {
             self.messages = []
         }
@@ -53,7 +53,7 @@ private class Generator {
         func generate(context: ModelContext) async throws -> String {
             // prepare the input -- first the structured messages,
             // next the tokens
-            let userInput = UserInput(chat: messages, processing: processing)
+            let userInput = buildUserInput()
             let input = try await context.processor.prepare(input: userInput)
 
             if cache.isEmpty {
@@ -90,7 +90,7 @@ private class Generator {
             do {
                 // prepare the input -- first the structured messages,
                 // next the tokens
-                let userInput = UserInput(chat: messages, processing: processing)
+                let userInput = buildUserInput()
                 let input = try await context.processor.prepare(input: userInput)
 
                 if cache.isEmpty {
@@ -127,6 +127,17 @@ private class Generator {
             }
         }
     }
+
+    private func buildUserInput() -> UserInput {
+        var userInput = UserInput(chat: messages, processing: processing)
+        if let reasoningEffort = generateParameters.reasoningEffort {
+            var context = userInput.additionalContext ?? [:]
+            context["reasoning_effort"] = reasoningEffort.rawValue
+            userInput.additionalContext = context
+        }
+        return userInput
+    }
+
 }
 
 /// Simplified API for loading models and preparing responses to prompts
@@ -262,4 +273,5 @@ public class ChatSession {
             videos: video.flatMap { [$0] } ?? []
         )
     }
+
 }

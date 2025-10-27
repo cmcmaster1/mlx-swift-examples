@@ -53,6 +53,12 @@ public protocol LogitProcessor: Sendable {
 /// for the `TokenIterator`.
 public struct GenerateParameters: Sendable {
 
+    public enum ReasoningEffort: String, Sendable {
+        case low
+        case medium
+        case high
+    }
+
     /// Step size for processing the prompt
     public var prefillStepSize = 512
 
@@ -84,6 +90,9 @@ public struct GenerateParameters: Sendable {
     /// number of tokens to consider for repetition penalty
     public var repetitionContextSize: Int = 20
 
+    /// Desired reasoning effort when supported by the chat template (e.g. Harmony).
+    public var reasoningEffort: ReasoningEffort?
+
     public init(
         maxTokens: Int? = nil,
         maxKVSize: Int? = nil,
@@ -91,7 +100,8 @@ public struct GenerateParameters: Sendable {
         kvGroupSize: Int = 64,
         quantizedKVStart: Int = 0,
         temperature: Float = 0.6, topP: Float = 1.0, repetitionPenalty: Float? = nil,
-        repetitionContextSize: Int = 20
+        repetitionContextSize: Int = 20,
+        reasoningEffort: ReasoningEffort? = nil
     ) {
         self.maxTokens = maxTokens
         self.maxKVSize = maxKVSize
@@ -102,6 +112,7 @@ public struct GenerateParameters: Sendable {
         self.topP = topP
         self.repetitionPenalty = repetitionPenalty
         self.repetitionContextSize = repetitionContextSize
+        self.reasoningEffort = reasoningEffort
     }
 
     public func sampler() -> LogitSampler {

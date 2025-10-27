@@ -426,6 +426,18 @@ private struct LLMUserInputProcessor: UserInputProcessor {
 
             return LMInput(tokens: MLXArray(promptTokens))
         } catch TokenizerError.missingChatTemplate {
+            if messageGenerator is HarmonyMessageGenerator {
+                let promptTokens = try tokenizer.applyChatTemplate(
+                    messages: messages,
+                    chatTemplate: .literal(HarmonyMessageGenerator.chatTemplate),
+                    addGenerationPrompt: true,
+                    truncation: false,
+                    maxLength: nil,
+                    tools: input.tools,
+                    additionalContext: input.additionalContext)
+
+                return LMInput(tokens: MLXArray(promptTokens))
+            }
             print(
                 "No chat template was included or provided, so converting messages to simple text format. This is not optimal for model performance, so applications should provide a chat template if none is included with the model."
             )

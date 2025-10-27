@@ -14,14 +14,23 @@ public enum Chat {
         /// Array of video data associated with the message.
         public var videos: [UserInput.Video]
 
+        /// Optional assistant reasoning content (analysis channel).
+        public var thinking: String?
+
+        /// Tool calls triggered from this message.
+        public var toolCalls: [ToolCall]
+
         public init(
             role: Role, content: String, images: [UserInput.Image] = [],
-            videos: [UserInput.Video] = []
+            videos: [UserInput.Video] = [], thinking: String? = nil,
+            toolCalls: [ToolCall] = []
         ) {
             self.role = role
             self.content = content
             self.images = images
             self.videos = videos
+            self.thinking = thinking
+            self.toolCalls = toolCalls
         }
 
         public static func system(
@@ -31,15 +40,24 @@ public enum Chat {
         }
 
         public static func assistant(
-            _ content: String, images: [UserInput.Image] = [], videos: [UserInput.Video] = []
+            _ content: String, images: [UserInput.Image] = [], videos: [UserInput.Video] = [],
+            thinking: String? = nil, toolCalls: [ToolCall] = []
         ) -> Self {
-            Self(role: .assistant, content: content, images: images, videos: videos)
+            Self(
+                role: .assistant, content: content, images: images, videos: videos,
+                thinking: thinking, toolCalls: toolCalls)
         }
 
         public static func user(
             _ content: String, images: [UserInput.Image] = [], videos: [UserInput.Video] = []
         ) -> Self {
             Self(role: .user, content: content, images: images, videos: videos)
+        }
+
+        public static func developer(
+            _ content: String, images: [UserInput.Image] = [], videos: [UserInput.Video] = []
+        ) -> Self {
+            Self(role: .developer, content: content, images: images, videos: videos)
         }
 
         public static func tool(_ content: String) -> Self {
@@ -51,6 +69,26 @@ public enum Chat {
             case assistant
             case system
             case tool
+            case developer
+        }
+
+        public struct ToolCall {
+            public var id: String?
+            public var name: String
+            public var arguments: [String: Any]
+            public var contentType: String?
+
+            public init(
+                id: String? = nil,
+                name: String,
+                arguments: [String: Any],
+                contentType: String? = nil
+            ) {
+                self.id = id
+                self.name = name
+                self.arguments = arguments
+                self.contentType = contentType
+            }
         }
     }
 }
@@ -144,7 +182,7 @@ public struct NoSystemMessageGenerator: MessageGenerator {
 
     public func generate(messages: [Chat.Message]) -> [Message] {
         messages
-            .filter { $0.role != .system }
+            .filter { $0.role != .system && $0.role != .developer }
             .map { generate(message: $0) }
     }
 }
