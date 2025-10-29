@@ -74,7 +74,7 @@ struct HarmonyChatApp {
                 )
                 let promptString = context.tokenizer.decode(tokens: promptTokens)
 
-                var parameters = GenerateParameters()
+                var parameters = GenerateParameters(maxTokens: 8192, temperature: 1.0, topP: 1.0)
                 parameters.reasoningEffort = options.reasoningEffort
 
                 let lmInput = try await context.processor.prepare(input: userInput)
@@ -116,7 +116,21 @@ struct HarmonyChatApp {
             }
 
             guard let finalSegment = segments.last(where: { $0.channel == "final" }) else {
-                let fallback = rawResponse.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                // If no final segment, try to extract content from any available segment
+                // or clean up the raw response to remove Harmony formatting
+                let fallback: String
+                if let lastSegment = segments.last {
+                    fallback = lastSegment.content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                } else {
+                    // Clean up raw response by removing Harmony formatting tags
+                    fallback = rawResponse
+                        .replacingOccurrences(of: "<\\|start\\|[^<]*<\\|message\\|>", with: "", options: .regularExpression)
+                        .replacingOccurrences(of: "<\\|end\\|>", with: "")
+                        .replacingOccurrences(of: "<\\|return\\|>", with: "")
+                        .replacingOccurrences(of: "<\\|channel\\|[^<]*", with: "", options: .regularExpression)
+                        .replacingOccurrences(of: "<\\|constrain\\|[^<]*", with: "", options: .regularExpression)
+                        .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                }
                 print("assistant> \(fallback)\n")
                 history.append(.init(role: Chat.Message.Role.assistant.rawValue, content: fallback))
                 continue

@@ -153,6 +153,9 @@ private class AttentionBlock: Module {
     let rope: YarnRoPE
 
     private var _previousMask: MLXArray?
+    // Performance optimization: cache tiled sinks for different sequence lengths
+    private var _cachedTiledSinks: MLXArray?
+    private var _cachedSinksLength: Int = -1
 
     public init(_ config: GPTOSSConfiguration) {
         self.headDim = config.headDim
@@ -188,6 +191,15 @@ private class AttentionBlock: Module {
         }
     }
 
+    // Performance optimization: get or create cached tiled sinks for sequence length L
+    private func getTiledSinks(L: Int) -> MLXArray {
+        if _cachedTiledSinks == nil || _cachedSinksLength != L {
+            _cachedTiledSinks = tiled(sinks.reshaped(1, -1, 1, 1), repetitions: [1, 1, L, 1])
+            _cachedSinksLength = L
+        }
+        return _cachedTiledSinks!
+    }
+
     func getCausalMask(_ x: MLXArray, cache: KVCache?) -> MLXArray {
         let L = x.dim(1)
         var offset = cache?.offset ?? 0
@@ -199,7 +211,8 @@ private class AttentionBlock: Module {
             var mask = MLX.where(createCausalMask(n: L, offset: offset - 1), zero, neginf)
             mask = mask.reshaped(1, 1, L, -1)
             mask = tiled(mask, repetitions: [1, numAttentionHeads, 1, 1])
-            let sinks = tiled(sinks.reshaped(1, -1, 1, 1), repetitions: [1, 1, L, 1])
+            // Use cached tiled sinks
+            let sinks = getTiledSinks(L: L)
             mask = concatenated([sinks, mask], axis: -1)
             return mask
         }
@@ -231,7 +244,8 @@ private class AttentionBlock: Module {
             mask = MLX.where(mask, zero, neginf)
             mask = mask.reshaped(1, 1, L, -1)
             mask = tiled(mask, repetitions: [1, numAttentionHeads, 1, 1])
-            let sinks = tiled(sinks.reshaped(1, -1, 1, 1), repetitions: [1, 1, L, 1])
+            // Use cached tiled sinks
+            let sinks = getTiledSinks(L: L)
             mask = concatenated([sinks, mask], axis: -1)
             return mask
         }
@@ -425,6 +439,8 @@ private class ModelInner: Module {
             masks = [MLXArray](repeating: mask, count: layers.count)
         } else {
             masks = []
+            masks.reserveCapacity(layers.count)
+            
             for (i, layer) in layers.enumerated() {
                 masks.append(
                     layer.selfAttn.getMask(
